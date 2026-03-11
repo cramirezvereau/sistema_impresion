@@ -16,6 +16,14 @@ import os
 import sys
 from PIL import Image, ImageDraw,ImageFont
 from typing import Dict, List
+from formats.formato6 import FormatoHidratacion
+from widgets.dynamic_list import DynamicListEntry
+from formats.formato7 import FormatoReporteCamas
+from formats.formato8 import FormatoEmeLaboratorio
+from formats.formato9 import FormatoDescansoMedico
+from widgets.radio_group import RadioGroupEntry
+from widgets.autocomplete_widget import AutocompleteEntry
+from widgets.api_dni_widget import DniApiEntry
 
 def resource_path(relative_path):
     """Obtiene la ruta absoluta al recurso"""
@@ -47,7 +55,11 @@ class PrinterAppUI:
             "formato2": FormatoAtencionLaboratorio(),
             "formato3": FormatoAtencionOdontologica(),
             "formato4": FormatoPruebaVIHSifilis(),
-            "formato5": FormatoPruebaHepatitisB()
+            "formato5": FormatoPruebaHepatitisB(),
+            "formato6": FormatoHidratacion(),
+            "formato7": FormatoReporteCamas(),
+            "formato8": FormatoEmeLaboratorio(),
+            "formato9": FormatoDescansoMedico()
         }
         
         # Variables
@@ -143,7 +155,7 @@ class PrinterAppUI:
         subtitulo.pack(pady=(0, 6))
     
     def setup_compact_format_selector(self):
-        """Selector de formato compacto estilo pestañas"""
+        """Selector de formato dinámico estilo pestañas"""
         selector_frame = ctk.CTkFrame(self.main_frame, fg_color=("white", "gray20"), 
                                     corner_radius=8)
         selector_frame.pack(fill="x", pady=(0, 8), padx=2)
@@ -156,72 +168,60 @@ class PrinterAppUI:
         )
         selector_title.pack(fill="x", padx=12, pady=(8, 6))
         
-        # Frame para pestañas/opciones
+        # Frame principal que contendrá todas las filas
         tabs_frame = ctk.CTkFrame(selector_frame, fg_color="transparent")
         tabs_frame.pack(fill="x", padx=10, pady=(0, 8))
         
-        # Diccionario de botones para acceso fácil
         self.format_buttons = {}
         
-        # Botones estilo pestañas (AHORA CON 5 FORMATOS)
+        # Tu lista completa de formatos
         formatos_info = [
             ("formato1", "PCT-Evaluación Riesgo", ("#e74c3c", "#c0392b")),
             ("formato2", "LAB-Atención Laboratorio", ("#3498db", "#2980b9")),
             ("formato3", "ODONT-Registro Odontología", ("#9b59b6", "#8e44ad")),
-            ("formato4", "PCT-VIH/Sífilis", ("#e67e22", "#d35400")),      # NUEVO
-            ("formato5", "PCT-Hepatitis B", ("#1abc9c", "#16a085"))       # NUEVO
+            ("formato4", "PCT-VIH/Sífilis", ("#e67e22", "#d35400")),
+            ("formato5", "PCT-Hepatitis B", ("#1abc9c", "#16a085")),
+            ("formato6", "HOSP-Hidratación", ("#00bcd4", "#00838f")),
+            ("formato7", "HOSP-Paciente", ("#d7ccc8", "#8d6e63")),    
+            ("formato8", "EME-Laboratorio", ("#fbc02d", "#f57f17")),
+            ("formato9", "MECO-Descanso", ("#4caf50", "#388e3c"))   
         ]
         
-        # Crear dos frames para dos filas CON SEPARACIÓN MÍNIMA
-        tabs_row1 = ctk.CTkFrame(tabs_frame, fg_color="transparent")
-        tabs_row1.pack(fill="x", pady=(0, 2))
-        
-        tabs_row2 = ctk.CTkFrame(tabs_frame, fg_color="transparent")
-        tabs_row2.pack(fill="x", pady=(0, 0))
-        
-        # COLORES PARA ESTADO INACTIVO (UNIFICADO PARA TODOS)
         inactive_bg_color = ("#ecf0f1", "#2c3e50")
         inactive_hover_color = ("#bdc3c7", "#34495e")
-        inactive_text_color = ("#666666", "#aaaaaa")  # <-- GRIS TENUE en lugar de negro
+        inactive_text_color = ("#666666", "#aaaaaa")
         
-        # Primeros 3 botones en la primera fila
-        for i, (key, text, color) in enumerate(formatos_info[:3]):
+        # LOGICA DINÁMICA: Crear filas de 3 botones automáticamente
+        columnas_por_fila = 3
+        current_row_frame = None
+        
+        for i, (key, text, color) in enumerate(formatos_info):
+            # Si es el primer botón de una fila (0, 3, 6...), creamos un nuevo Frame
+            if i % columnas_por_fila == 0:
+                current_row_frame = ctk.CTkFrame(tabs_frame, fg_color="transparent")
+                current_row_frame.pack(fill="x", pady=(0, 6)) # Espaciado vertical entre filas
+                
+            # Crear el botón y meterlo en la fila actual
             btn = ctk.CTkButton(
-                tabs_row1,
+                current_row_frame,
                 text=text,
-                width=180,
+                width=195,
                 height=32,
-                font=("Segoe UI", 13, "bold"),
+                font=("Segoe UI", 12, "bold"),
                 command=lambda k=key: self.switch_format(k),
                 fg_color=color if key == "formato1" else inactive_bg_color,
                 hover_color=color if key == "formato1" else inactive_hover_color,
-                text_color="white" if key == "formato1" else inactive_text_color,  # <-- Gris tenue
-                corner_radius=6
+                text_color="white" if key == "formato1" else inactive_text_color,
+                corner_radius=6,
+                anchor="center"
             )
-            if i < 2:
-                btn.pack(side="left", padx=(0, 10))
+            
+            # Espaciado horizontal: A los dos primeros de cada fila les damos margen a la derecha
+            if (i % columnas_por_fila) < (columnas_por_fila - 1):
+                btn.pack(side="left", padx=(0, 8))
             else:
-                btn.pack(side="left")
-            self.format_buttons[key] = btn
-        
-        # Últimos 2 botones en la segunda fila
-        for i, (key, text, color) in enumerate(formatos_info[3:]):
-            btn = ctk.CTkButton(
-                tabs_row2,
-                text=text,
-                width=180,
-                height=32,
-                font=("Segoe UI", 13, "bold"),
-                command=lambda k=key: self.switch_format(k),
-                fg_color=inactive_bg_color,
-                hover_color=inactive_hover_color,
-                text_color=inactive_text_color,  # <-- Gris tenue
-                corner_radius=6
-            )
-            if i == 0:
-                btn.pack(side="left", padx=(0, 10))
-            else:
-                btn.pack(side="left")
+                btn.pack(side="left") # El último botón de la fila va sin margen
+                
             self.format_buttons[key] = btn
     
     def switch_format(self, formato_key):
@@ -235,7 +235,11 @@ class PrinterAppUI:
             "formato2": ("#3498db", "#2980b9"),
             "formato3": ("#9b59b6", "#8e44ad"),
             "formato4": ("#e67e22", "#d35400"),
-            "formato5": ("#1abc9c", "#16a085")
+            "formato5": ("#1abc9c", "#16a085"),
+            "formato6": ("#00bcd4", "#00838f"),
+            "formato7": ("#d7ccc8", "#8d6e63"),
+            "formato8": ("#fbc02d", "#f57f17"),
+            "formato9": ("#4caf50", "#388e3c")
         }
         
         # Colores unificados para estado inactivo
@@ -272,8 +276,10 @@ class PrinterAppUI:
         for widget in self.fields_container.winfo_children():
             widget.destroy()
         
-            # Limpiar diccionario de widgets de hora
+        # Limpiar diccionario de widgets de hora y combos
         self.hora_widgets.clear()
+        if hasattr(self, 'combo_widgets'):
+            self.combo_widgets.clear()
 
         # Obtener formato
         formato = self.formatos.get(formato_key)
@@ -284,8 +290,12 @@ class PrinterAppUI:
         required_fields = formato.get_required_fields()
         self.current_fields = required_fields
         
-        # Limpiar variables anteriores
+        # ========================================================
+        # 1. PRE-INICIALIZAR VARIABLES (Crucial para la API DNI)
+        # ========================================================
         self.field_variables.clear()
+        for field in required_fields:
+            self.field_variables[field['name']] = ctk.StringVar()
         
         # Usar GRID para disposición más compacta
         row = 0
@@ -296,86 +306,73 @@ class PrinterAppUI:
             field_name = field['name']
             field_label = field['label']
             field_type = field.get('type', 'text')
-            field_width = field.get('width', 180)  # Ancho reducido
+            field_width = field.get('width', 280) 
             
-            # Crear variable para el campo
-            var = ctk.StringVar()
-            self.field_variables[field_name] = var
+            # Rescatar la variable pre-creada
+            var = self.field_variables[field_name]
             
-            # Frame para cada campo (más compacto)
+            # CREAR EL CONTENEDOR
             field_frame = ctk.CTkFrame(self.fields_container, fg_color="transparent")
             field_frame.grid(row=row, column=col, sticky="ew", padx=5, pady=4)
             
-            # Etiqueta más pequeña
-            label = ctk.CTkLabel(
-                field_frame,
-                text=field_label,
-                font=("Segoe UI", 12, "bold"),
-                anchor="w",
-                height=20
-            )
-            label.pack(fill="x", pady=(0, 2))
-
-          # CAMPO ESPECIAL PARA HORA - USAR WIDGET PERSONALIZADO
-            if field_type == 'hora':
-                # Crear widget personalizado de hora
-                hora_widget = HoraEntry(
+            # Dibujar la etiqueta (Solo si no es un campo vacío de relleno)
+            if field_label:
+                label = ctk.CTkLabel(
                     field_frame,
-                    variable=var,
-                    width=field_width,
-                    height=28
+                    text=field_label,
+                    font=("Segoe UI", 12, "bold"),
+                    anchor="w",
+                    height=20
                 )
-                hora_widget.pack(fill="x", pady=(0, 2))
-                
-                # Guardar referencia al widget
-                self.hora_widgets[field_name] = hora_widget
-                
-                # Saltar a la siguiente iteración
-                tooltip = field.get('tooltip', '')
-                if tooltip:
-                    tooltip_label = ctk.CTkLabel(
-                        field_frame,
-                        text=tooltip,
-                        font=("Segoe UI", 10),
-                        text_color="gray",
-                        height=18
-                    )
-                    tooltip_label.pack(fill="x")
-                
-                # Actualizar posición en grid
-                col += 1
-                if col >= max_cols:
-                    col = 0
-                    row += 1
-                continue
+                label.pack(fill="x", pady=(0, 2))
+
+            # ==========================================
+            # EVALUAR LOS TIPOS DE CAMPO
+            # ==========================================
             
-                        # CAMPO TIPO COMBO
+            if field_type == 'api_dni':
+                target_var_name = field.get('target', 'nombres')
+                target_var = self.field_variables.get(target_var_name)
+                
+                widget = DniApiEntry(field_frame, target_var=target_var, width=field_width)
+                widget.pack(fill="x", pady=(0, 2))
+                self.field_variables[field_name] = widget
+                
+            elif field_type == 'radio':
+                widget = RadioGroupEntry(field_frame, options=field.get('options', []), width=field_width)
+                widget.pack(fill="x", pady=(0, 2))
+                self.field_variables[field_name] = widget
+                
+            elif field_type == 'autocomplete':
+                widget = AutocompleteEntry(field_frame, data_file="data/cie10.json", width=field_width)
+                widget.pack(fill="x", pady=(0, 2))
+                self.field_variables[field_name] = widget
+                
+            elif field_type == 'dynamic_list':
+                widget = DynamicListEntry(field_frame, width=field_width)
+                widget.pack(fill="x", pady=(0, 2))
+                self.field_variables[field_name] = widget
+
+            elif field_type == 'hora':
+                hora_widget = HoraEntry(field_frame, variable=var, width=field_width, height=28)
+                hora_widget.pack(fill="x", pady=(0, 2))
+                self.hora_widgets[field_name] = hora_widget
+
             elif field_type == 'combo':
                 options = field.get('options', [])
                 option_values = [opt['value'] for opt in options]
                 option_labels = [opt['label'] for opt in options]
                 
-                # Crear CTkOptionMenu
                 option_menu = ctk.CTkOptionMenu(
-                    field_frame,
-                    values=option_labels,
-                    width=field_width,
-                    height=28,
-                    font=("Segoe UI", 12),
-                    corner_radius=4,
-                    fg_color=("white", "gray25"),
-                    button_color=("gray80", "gray30"),
-                    button_hover_color=("gray70", "gray40"),
-                    dropdown_fg_color=("white", "gray20"),
-                    dropdown_text_color=("black", "white"),
-                    dropdown_font=("Segoe UI", 11)
+                    field_frame, values=option_labels, width=field_width, height=28,
+                    font=("Segoe UI", 12), corner_radius=4,
+                    fg_color=("white", "gray25"), button_color=("gray80", "gray30"),
+                    button_hover_color=("gray70", "gray40"), dropdown_fg_color=("white", "gray20"),
+                    dropdown_text_color=("black", "white"), dropdown_font=("Segoe UI", 11)
                 )
                 option_menu.pack(fill="x", pady=(0, 2))
                 
-                # Configurar variable para almacenar el valor actual
                 current_value = ctk.StringVar()
-                
-                # Función para actualizar la variable principal (CORREGIDA)
                 def create_update_function(option_labels_list, option_values_list, target_var):
                     def update_func(selected_label):
                         if selected_label in option_labels_list:
@@ -384,148 +381,76 @@ class PrinterAppUI:
                             current_value.set(option_values_list[index])
                     return update_func
                 
-                # Crear función específica para este campo
                 update_func = create_update_function(option_labels, option_values, var)
                 option_menu.configure(command=update_func)
                 
-                # Establecer valor por defecto
                 if option_labels:
                     option_menu.set(option_labels[0])
                     var.set(option_values[0])
                     current_value.set(option_values[0])
                 
-                # Guardar referencia
+                if not hasattr(self, 'combo_widgets'): self.combo_widgets = {}
                 self.combo_widgets[field_name] = {
-                    'widget': option_menu,
-                    'values': option_values,
-                    'labels': option_labels,
-                    'current_value': current_value
+                    'widget': option_menu, 'values': option_values,
+                    'labels': option_labels, 'current_value': current_value
                 }
-                
-                # Saltar a la siguiente iteración
-                tooltip = field.get('tooltip', '')
-                if tooltip:
-                    tooltip_label = ctk.CTkLabel(
-                        field_frame,
-                        text=tooltip,
-                        font=("Segoe UI", 10),
-                        text_color="gray",
-                        height=18
-                    )
-                    tooltip_label.pack(fill="x")
-                
-                # Actualizar posición en grid
-                col += 1
-                if col >= max_cols:
-                    col = 0
-                    row += 1
-                continue
-            
-            # CAMPO DE FECHA ESPECIAL
-            if field_type == 'date' and field_name in ['fecha', 'fecha_prueba', 'fecha_nacimiento']:
-                # Campo de fecha especial
+
+            elif field_type == 'date':
                 entry_frame = ctk.CTkFrame(field_frame, fg_color="transparent", height=28)
                 entry_frame.pack(fill="x")
                 
                 entry = ctk.CTkEntry(
-                    entry_frame,
-                    textvariable=var,
-                    width=field_width,
-                    height=28,
-                    font=("Segoe UI", 12),
-                    state="readonly"
+                    entry_frame, textvariable=var, width=field_width, height=28,
+                    font=("Segoe UI", 12), state="readonly"
                 )
                 entry.pack(side="left", fill="x", expand=True)
                 
-                # Establecer valor inicial
                 if field_name == 'fecha':
                     var.set(self.fecha.get())
                 else:
                     var.set(datetime.now().strftime('%d/%m/%Y'))
                 
                 calendar_btn = ctk.CTkButton(
-                    entry_frame,
-                    text="📅",
-                    width=32,
-                    height=28,
-                    font=("Segoe UI", 14),
+                    entry_frame, text="📅", width=32, height=28, font=("Segoe UI", 14),
                     command=lambda fn=field_name: self.open_calendar_for_field(fn),
                 )
                 calendar_btn.pack(side="left", padx=(5, 0))
-                
-                # Configurar validación si es dni
-                if field_type == 'dni':
-                    self.setup_dni_validation(entry, var)
-                
-                # Saltar a la siguiente iteración
-                tooltip = field.get('tooltip', '')
-                if tooltip:
-                    tooltip_label = ctk.CTkLabel(
-                        field_frame,
-                        text=tooltip,
-                        font=("Segoe UI", 10),
-                        text_color="gray",
-                        height=18
-                    )
-                    tooltip_label.pack(fill="x")
-                
-                # Actualizar posición en grid
-                col += 1
-                if col >= max_cols:
-                    col = 0
-                    row += 1
-                continue
-            
-            # CAMPOS NORMALES (texto, dni, número, edad, sexo, etc.)
-            entry = ctk.CTkEntry(
-                field_frame,
-                textvariable=var,
-                width=field_width,
-                height=28,
-                font=("Segoe UI", 12),
-                justify="left"
-            )
-            entry.pack(fill="x", pady=(0, 2))
-            
-            # Configurar validaciones según el tipo
-            if field_type == 'dni':
-                self.setup_dni_validation(entry, var)
-            elif field_type == 'number':
-                self.setup_number_validation(entry, var)
-            elif field_type == 'edad':
-                self.setup_edad_validation(entry, var)
-            elif field_type == 'single_letter':
-                self.setup_single_letter_validation(entry, var)
-            elif field_type == 'sexo':
-                self.setup_sexo_validation(entry, var)
-            elif field_type == 'hora':
-                self.setup_hora_validation(entry, var)
+
             else:
-                self.setup_uppercase_binding(entry, var)
-            
-            # Tooltip pequeño
+                # CAMPOS NORMALES (text, number, dni, etc.)
+                if field_label:
+                    entry = ctk.CTkEntry(
+                        field_frame, textvariable=var, width=field_width, height=28,
+                        font=("Segoe UI", 12), justify="left"
+                    )
+                    entry.pack(fill="x", pady=(0, 2))
+                    
+                    if field_type == 'dni': self.setup_dni_validation(entry, var)
+                    elif field_type == 'number': self.setup_number_validation(entry, var)
+                    elif field_type == 'edad': self.setup_edad_validation(entry, var)
+                    elif field_type == 'single_letter': self.setup_single_letter_validation(entry, var)
+                    elif field_type == 'sexo': self.setup_sexo_validation(entry, var)
+                    else: self.setup_uppercase_binding(entry, var)
+
+            # Tooltip
             tooltip = field.get('tooltip', '')
             if tooltip:
                 tooltip_label = ctk.CTkLabel(
-                    field_frame,
-                    text=tooltip,
-                    font=("Segoe UI", 10),
-                    text_color="gray",
-                    height=18
+                    field_frame, text=tooltip, font=("Segoe UI", 10), text_color="gray", height=18
                 )
                 tooltip_label.pack(fill="x")
-            
+
             # Actualizar posición en grid
             col += 1
             if col >= max_cols:
                 col = 0
                 row += 1
 
-         # AGREGAR BOTÓN PARA HORA ACTUAL EN TODOS LOS CAMPOS
+        # AGREGAR BOTÓN PARA HORA ACTUAL EN TODOS LOS CAMPOS
         if any(field.get('type') == 'hora' for field in required_fields):
             self.add_current_time_button(row + 1)        
         
-        # Configurar pesos de columnas para que se expandan
+        # Configurar pesos de columnas
         self.fields_container.grid_columnconfigure(0, weight=1)
         self.fields_container.grid_columnconfigure(1, weight=1)
         

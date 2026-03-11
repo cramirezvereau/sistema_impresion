@@ -1,0 +1,19 @@
+# Entornos virtuales
+venv/
+env/
+
+# Variables de entorno (Secretos)
+.env
+
+# Archivos compilados de Python
+__pycache__/
+*.pyc
+
+# Carpetas de compilación de PyInstaller
+build/
+dist/
+*.spec
+Fichas_PDF
+
+# Configuraciones locales de VS Code
+.vscode/
