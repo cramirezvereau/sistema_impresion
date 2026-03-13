@@ -96,8 +96,8 @@ class FormatoHidratacion(BaseTicketFormat):
             font_normal = ImageFont.load_default()
             
         y_position = 20
-        margen_x = 35  # Margen izquierdo y derecho ampliado
-        
+        margen_x = 10  # Margen izquierdo y derecho ampliado
+        margen_derecho = 200  # ← agrega un margen derecho explícito
         # ================= LOGO Y TÍTULO =================
         try:
             logo_path = resource_path("images/logo.png")
@@ -110,11 +110,11 @@ class FormatoHidratacion(BaseTicketFormat):
                 
                 img.paste(logo_image, (margen_x, y_position))
                 
-                texto_x = margen_x + new_logo_width + 15
+                texto_x = margen_x + new_logo_width + 5
                 draw.text((texto_x + 50, y_position), "HOSPITAL", fill='black', font=font_title)
                 draw.text((texto_x, y_position + 35), "BICENTENARIO CHAO", fill='black', font=font_title)
                 
-                y_position += max_logo_height + 40
+                y_position += max_logo_height + 30
         except Exception as e:
             draw.text((margen_x, y_position), "HOSPITAL BICENTENARIO CHAO", fill='black', font=font_title)
             y_position += 60
@@ -124,7 +124,7 @@ class FormatoHidratacion(BaseTicketFormat):
         y_position += 35
         
         # Le aplicamos salto de línea al nombre también por si acaso
-        ancho_max_nombre = self.width_px - (margen_x * 2)
+        ancho_max_nombre = self.width_px - margen_x - margen_derecho #para margen
         palabras_nombre = str(nombre).split()
         linea_nombre = ""
         for palabra in palabras_nombre:
@@ -140,7 +140,7 @@ class FormatoHidratacion(BaseTicketFormat):
             
         # Dibujamos la línea de subrayado debajo del nombre
         y_position += 30
-        draw.line([(margen_x, y_position), (self.width_px - margen_x, y_position)], fill='black', width=1)
+        draw.line([(margen_x, y_position), (self.width_px - margen_derecho, y_position)], fill='black', width=1)
         y_position += 40
         
         # ================= MEDICAMENTOS =================
@@ -160,7 +160,7 @@ class FormatoHidratacion(BaseTicketFormat):
             
             # 2. Calcula los límites para el texto normal
             x_valor = x + ancho_label + 8
-            ancho_maximo = self.width_px - x_valor - 20 # 20px margen de seguridad derecho
+            ancho_maximo = self.width_px - x_valor - margen_derecho # para margen
             
             # 3. Corta y envuelve el texto si es muy largo
             palabras = str(text_normal).split()

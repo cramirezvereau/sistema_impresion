@@ -42,26 +42,21 @@ class FormatoDescansoMedico(BaseTicketFormat):
             font_normal = ImageFont.truetype("arial.ttf", 22)
         except:
             font_title = font_bold = font_normal = ImageFont.load_default()
-            
-        y_pos = 20
-        margen_x = 20
+        
+        margen_x = 20        # ← Margen izquierdo
+        margen_derecho = 95 # ← Margen derecho
+        ancho_util = self.width_px - margen_derecho  # Límite derecho del contenido
         
         def dibujar_separador(y):
-            draw.line([(margen_x, y), (self.width_px - margen_x, y)], fill='black', width=2)
-            
-        # ==========================================
-        # FUNCIÓN MAESTRA: Dibuja texto con salto de línea automático
-        # ==========================================
+            draw.line([(margen_x, y), (ancho_util, y)], fill='black', width=2)
+        
         def draw_linea(label, valor, y, salto_base=40):
-            # Imprime la etiqueta en negrita
             draw.text((margen_x, y), label, fill='black', font=font_bold)
             ancho_label = draw.textlength(label, font=font_bold)
             
-            # Calcula dónde empieza el valor y su límite de ancho
             x_valor = margen_x + ancho_label + 15
-            ancho_maximo = self.width_px - x_valor - 20 # 20px margen derecho de seguridad
+            ancho_maximo = ancho_util - x_valor  # ← usa ancho_util en vez de self.width_px
             
-            # Cortamos el texto en palabras y verificamos si caben
             palabras = str(valor).split()
             lineas = []
             linea_actual = ""
@@ -69,58 +64,82 @@ class FormatoDescansoMedico(BaseTicketFormat):
             for palabra in palabras:
                 prueba = f"{linea_actual} {palabra}".strip()
                 if draw.textlength(prueba, font=font_normal) <= ancho_maximo:
-                    linea_actual = prueba # Si cabe, sumamos la palabra
+                    linea_actual = prueba
                 else:
-                    if linea_actual: lineas.append(linea_actual) # No cabe, guardamos la línea
-                    linea_actual = palabra # y la palabra actual baja a la siguiente línea
+                    if linea_actual: lineas.append(linea_actual)
+                    linea_actual = palabra
             if linea_actual: lineas.append(linea_actual)
             if not lineas: lineas = [""]
             
-            # Imprimimos las líneas calculadas
             y_actual = y
             for linea in lineas:
                 draw.text((x_valor, y_actual), linea, fill='black', font=font_normal)
-                y_actual += 30 # Altura que ocupa cada línea
-                
-            # Devuelve la nueva posición 'y_pos' dependiendo de cuánto creció el texto
+                y_actual += 30
+            
             altura_ocupada = y_actual - y
             if altura_ocupada < salto_base:
                 return y + salto_base
-            return y_actual + 10 # Si ocupó varias líneas, dejamos 10px de margen inferior extra
-
+            return y_actual + 10
+        
+        def draw_linea_abajo(label, valor, y, salto_base=55):
+            """Dibuja la etiqueta en una línea y el valor en la línea siguiente, indentado"""
+            draw.text((margen_x, y), label, fill='black', font=font_bold)
+            y += 30  # Salto a la siguiente línea
+            
+            # Wrap automático del valor
+            ancho_maximo = ancho_util - margen_x - 20
+            palabras = str(valor).split()
+            lineas = []
+            linea_actual = ""
+            
+            for palabra in palabras:
+                prueba = f"{linea_actual} {palabra}".strip()
+                if draw.textlength(prueba, font=font_normal) <= ancho_maximo:
+                    linea_actual = prueba
+                else:
+                    if linea_actual: lineas.append(linea_actual)
+                    linea_actual = palabra
+            if linea_actual: lineas.append(linea_actual)
+            if not lineas: lineas = [""]
+            
+            y_actual = y
+            for linea in lineas:
+                draw.text((margen_x + 20, y_actual), linea, fill='black', font=font_normal)
+                y_actual += 30
+            
+            altura_ocupada = y_actual - y
+            if altura_ocupada < salto_base:
+                return y + salto_base
+            return y_actual + 10
         def draw_checkbox(label, seleccionado, y):
             draw.text((margen_x + 20, y), label, fill='black', font=font_normal)
-            box_x = self.width_px - 70 
+            box_x = ancho_util - 40  # ← usa ancho_util en vez de self.width_px
             draw.rectangle([box_x, y, box_x + 24, y + 24], outline='black', width=2)
             if seleccionado == label:
                 draw.line([box_x, y, box_x + 24, y + 24], fill='black', width=3)
                 draw.line([box_x + 24, y, box_x, y + 24], fill='black', width=3)
 
-        # ==========================================
-        # TÍTULO
-        # ==========================================
+        y_pos = 20
+        
+        # TÍTULO (centrado dentro del ancho útil)
         tit = "FORMATO DE REGULARIZACIÓN"
         tit2 = "DE DESCANSO MÉDICO"
-        draw.text(((self.width_px - draw.textlength(tit, font=font_title)) / 2, y_pos), tit, fill='black', font=font_title)
+        x_tit = margen_x + ((ancho_util - margen_x - draw.textlength(tit, font=font_title)) / 2)
+        x_tit2 = margen_x + ((ancho_util - margen_x - draw.textlength(tit2, font=font_title)) / 2)
+        draw.text((x_tit, y_pos), tit, fill='black', font=font_title)
         y_pos += 35
-        draw.text(((self.width_px - draw.textlength(tit2, font=font_title)) / 2, y_pos), tit2, fill='black', font=font_title)
+        draw.text((x_tit2, y_pos), tit2, fill='black', font=font_title)
         y_pos += 50
         
         dibujar_separador(y_pos)
         y_pos += 20
         
-        # ==========================================
-        # DATOS GENERALES
-        # ==========================================
-        y_pos = draw_linea("ESTABLECIMIENTO:", data.get('establecimiento', ''), y_pos, 40)
-        y_pos = draw_linea("ACTO MÉDICO:", data.get('acto_medico', ''), y_pos, 50)
+        y_pos = draw_linea_abajo("ESTABLECIMIENTO:", data.get('establecimiento', ''), y_pos)
+        y_pos = draw_linea_abajo("ACTO MÉDICO:", data.get('acto_medico', ''), y_pos)
         
         dibujar_separador(y_pos)
         y_pos += 20
         
-        # ==========================================
-        # ATENCIÓN Y CONTINGENCIA
-        # ==========================================
         draw.text((margen_x, y_pos), "TIPO DE ATENCIÓN:", fill='black', font=font_bold)
         y_pos += 35
         draw_checkbox("CONSULTA EXTERNA", data.get('tipo_atencion', ''), y_pos)
@@ -136,9 +155,6 @@ class FormatoDescansoMedico(BaseTicketFormat):
         dibujar_separador(y_pos)
         y_pos += 20
         
-        # ==========================================
-        # DÍAS Y DIAGNÓSTICO
-        # ==========================================
         y_pos = draw_linea("DÍAS OTORGADOS:", data.get('dias', ''), y_pos, 45)
         
         draw.text((margen_x, y_pos), "DIAGNÓSTICO CIE-10:", fill='black', font=font_bold)
@@ -155,14 +171,8 @@ class FormatoDescansoMedico(BaseTicketFormat):
         dibujar_separador(y_pos)
         y_pos += 20
         
-        # ==========================================
-        # DATOS DEL PACIENTE
-        # ==========================================
         y_pos = draw_linea("SERVICIO:", data.get('servicio', ''), y_pos, 40)
-        
-        # AQUI OCURRE LA MAGIA DEL SALTO DE LINEA SI ES LARGO
         y_pos = draw_linea("NOMBRES:", data.get('nombres', ''), y_pos, 40)
-        
         y_pos = draw_linea("D.N.I. / C.E.:", data.get('dni', ''), y_pos, 50)
         
         draw.text((margen_x, y_pos), "ACC. TRABAJO:", fill='black', font=font_bold)
@@ -175,21 +185,20 @@ class FormatoDescansoMedico(BaseTicketFormat):
         dibujar_separador(y_pos)
         y_pos += 20
         
-        # ==========================================
-        # FECHAS Y FIRMA
-        # ==========================================
         y_pos = draw_linea("FECHA INICIO:", data.get('fecha_inicio', ''), y_pos, 40)
         y_pos = draw_linea("FECHA TÉRMINO:", data.get('fecha_termino', ''), y_pos, 40)
         
-        y_pos += 120 
+        y_pos += 120
         
-        x_firma = self.width_px / 2
+        # Firma centrada dentro del ancho útil
+        x_firma = (margen_x + ancho_util) / 2
         draw.line([(x_firma - 140, y_pos), (x_firma + 140, y_pos)], fill='black', width=2)
         y_pos += 10
-        draw.text((x_firma - 85, y_pos), "FIRMA Y SELLO", fill='black', font=font_bold)
+        firma_txt = "FIRMA Y SELLO"
+        x_firma_txt = x_firma - (draw.textlength(firma_txt, font=font_bold) / 2)
+        draw.text((x_firma_txt, y_pos), firma_txt, fill='black', font=font_bold)
         y_pos += 40
         
-        # Cortamos el ticket de forma segura
         img = img.crop((0, 0, self.width_px, y_pos))
         
         return img

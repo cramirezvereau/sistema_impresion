@@ -917,21 +917,14 @@ class PrinterAppUI:
                 messagebox.showwarning("Verificación", "No se pudo conectar a la impresora")
     
     def print_current_format(self):
-        """Imprimir con el formato actual"""
-        if not self.printer_manager.selected_printer:
-            messagebox.showwarning("Advertencia", "Por favor seleccione una impresora")
-            return
-        
         # Obtener datos de los campos
         data = {}
         for field_name, var in self.field_variables.items():
             data[field_name] = var.get().strip()
         
-        # Asegurar que la fecha esté actualizada
         if 'fecha' not in data or not data['fecha']:
             data['fecha'] = self.fecha.get()
         
-        # Validar datos con el formato actual
         formato = self.formatos[self.current_format]
         is_valid, message = formato.validate_data(data)
         
@@ -939,37 +932,50 @@ class PrinterAppUI:
             messagebox.showwarning("Datos inválidos", message)
             return
         
-        # Preguntar si desea guardar como PDF
-        respuesta = messagebox.askyesno("Guardar PDF", 
-                                       "¿Desea guardar una copia en PDF?\n\n"
-                                       "Sí: Guardar PDF e imprimir\n"
-                                       "No: Solo imprimir")
+        # Si no hay impresora, ofrecer solo PDF
+        if not self.printer_manager.selected_printer:
+            respuesta = messagebox.askyesno(
+                "Sin impresora",
+                "No hay impresora conectada.\n¿Desea guardar solo como PDF?"
+            )
+            if respuesta:
+                thread = threading.Thread(
+                    target=self._print_job,
+                    args=(self.current_format, data, True, True)  # solo_pdf=True
+                )
+                thread.start()
+            return
         
-        # Iniciar impresión en hilo separado
+        # Con impresora: preguntar si también guarda PDF
+        respuesta = messagebox.askyesno(
+            "Guardar PDF",
+            "¿Desea guardar una copia en PDF?\n\nSí: Guardar PDF e imprimir\nNo: Solo imprimir"
+        )
+        
         thread = threading.Thread(
             target=self._print_job,
-            args=(self.current_format, data, respuesta)
+            args=(self.current_format, data, respuesta, False)
         )
         thread.start()
     
     def print_test(self):
         """Imprimir prueba"""
         if not self.printer_manager.selected_printer:
-            messagebox.showwarning("Advertencia", "Por favor seleccione una impresora")
+            messagebox.showwarning("Advertencia", "No hay impresora conectada para prueba")
             return
         
         thread = threading.Thread(
             target=self._print_job,
-            args=("test", {}, False)
+            args=("test", {}, False, False)
         )
         thread.start()
     
-    def _print_job(self, formato_key, data: Dict, guardar_pdf):
+    def _print_job(self, formato_key, data: Dict, guardar_pdf, solo_pdf=False):
         """Ejecutar trabajo de impresión"""
         progress_window = self.create_progress_window(formato_key == "test")
         
         try:
-            self.update_progress(progress_window, "Preparando impresión...", 0.1)
+            self.update_progress(progress_window, "Preparando...", 0.1)
             time.sleep(0.2)
             
             self.update_progress(progress_window, "Generando contenido...", 0.3)
@@ -981,26 +987,31 @@ class PrinterAppUI:
                 formato = self.formatos.get(formato_key)
                 if not formato:
                     raise Exception(f"Formato '{formato_key}' no encontrado")
-                
                 img = formato.generate_image(data=data)
                 is_test = False
             
+            pdf_path = None
             if guardar_pdf and formato_key != "test":
                 self.update_progress(progress_window, "Guardando PDF...", 0.6)
-                formato.save_as_pdf(img, data)
+                success, pdf_path = self.printer_manager.print_image(img, is_test)
             
-            self.update_progress(progress_window, "Enviando a impresora...", 0.8)
-            self.printer_manager.print_image(img, is_test)
+            # Solo imprimir si NO es solo_pdf y hay impresora
+            if not solo_pdf and self.printer_manager.selected_printer:
+                self.update_progress(progress_window, "Enviando a impresora...", 0.8)
+                self.printer_manager.print_image(img, is_test)
             
             self.update_progress(progress_window, "¡Completado!", 1.0)
             time.sleep(0.3)
-            
             progress_window.destroy()
             
             formato_nombre = self.formatos[formato_key].get_format_name() if formato_key != "test" else "Prueba"
-            mensaje = f"{formato_nombre} impreso correctamente"
-            if guardar_pdf and not is_test:
-                mensaje += "\n✓ Copia guardada en PDF"
+            
+            if solo_pdf:
+                mensaje = f"PDF guardado correctamente\n📁 {pdf_path}"
+            else:
+                mensaje = f"{formato_nombre} impreso correctamente"
+                if guardar_pdf and pdf_path:
+                    mensaje += f"\n✓ PDF guardado en: {pdf_path}"
             
             self.root.after(0, lambda: messagebox.showinfo("Éxito", mensaje))
             
