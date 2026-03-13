@@ -1,4 +1,4 @@
-# formats/formato2.py (actualizado)
+# formats/formato2.py
 from formats.base_format import BaseTicketFormat
 from PIL import Image, ImageDraw, ImageFont
 
@@ -9,7 +9,7 @@ class FormatoAtencionLaboratorio(BaseTicketFormat):
         return "Atención_Laboratorio"
     
     def get_required_fields(self):
-        """Campos requeridos para este formato (NO usa DNI, usa otros campos)"""
+        """Campos requeridos para este formato"""
         return [
             {
                 'name': 'nombre_paciente',
@@ -22,9 +22,10 @@ class FormatoAtencionLaboratorio(BaseTicketFormat):
             {
                 'name': 'dni',
                 'label': 'DNI',
-                'type': 'number',
+                'type': 'api_dni',
+                'target': 'nombre_paciente',
                 'required': True,
-                'width': 100,
+                'width': 300,
                 'tooltip': 'DNI del paciente'
             },
             {
@@ -86,128 +87,103 @@ class FormatoAtencionLaboratorio(BaseTicketFormat):
         
         y_position = 20
         center_x = self.width_px // 2
+        margen_x = 30
         
-        # TÍTULO
+        # TÍTULOS
         titulo = "HOSPITAL BICENTENARIO CHAO"
         text_width = draw.textlength(titulo, font=font_title)
-        draw.text(((self.width_px - text_width) // 2.5, y_position), 
-                 titulo, fill='black', font=font_title)
-        y_position += 35
+        draw.text(((self.width_px - text_width) // 2, y_position), titulo, fill='black', font=font_title)
+        y_position += 40
 
-         # Línea separadora
-        draw.line([(20, y_position), (self.width_px-20, y_position)], fill='black', width=2)
-        y_position += 20
-
-        # TÍTULO
-        titulo = "ATENCION LABORATORIO"
-        text_width = draw.textlength(titulo, font=font_title)
-        draw.text(((self.width_px - text_width) // 2.5, y_position), 
-                 titulo, fill='black', font=font_title)
-        y_position += 35
-        
         # Línea separadora
         draw.line([(20, y_position), (self.width_px-20, y_position)], fill='black', width=2)
         y_position += 20
-        
-        # DATOS DEL PACIENTE
-        draw.text((30, y_position), "PACIENTE:", fill='black', font=font_bold)
-        draw.text((30, y_position+25), nombre_paciente if nombre_paciente else "________________", 
-                 fill='black', font=font_normal)
-        y_position += 60
-        
-        draw.text((30, y_position), "DNI:", fill='black', font=font_bold)
-        draw.text((80, y_position), dni if dni else "____", 
-                 fill='black', font=font_normal2)
-        
 
-        draw.text((220, y_position), "SOLICITUD :", fill='black', font=font_bold)
-        draw.text((360, y_position), solicitud if solicitud else "____", 
-                 fill='black', font=font_normal2)
-        y_position += 40
-        
-         #draw.text((30, y_position), "DIAGNÓSTICO:", fill='black', font=font_bold)
-         #y_position += 20
-        # Mostrar diagnóstico en múltiples líneas si es largo
-         #diagnostico_lines = self.wrap_text(nombre_paciente, 40)
-         #for line in diagnostico_lines:
-         #   draw.text((40, y_position), line, fill='black', font=font_normal)
-          #   y_position += 18
-        
-       
-        
-        draw.text((30, y_position), "SERVICIO  :", fill='black', font=font_bold)
-        draw.text((150, y_position), servicio_solicitante if servicio_solicitante else "________________", 
-                 fill='black', font=font_normal)
-        y_position += 40
-        
-        draw.text((30, y_position), "EXAMEN   :", fill='black', font=font_bold)
-        draw.text((150, y_position), examen_solicitado if servicio_solicitante else "________________", 
-                 fill='black', font=font_normal)
-        y_position += 40
-
-        draw.text((30, y_position), "FECHA   :", fill='black', font=font_bold)
-        draw.text((150, y_position), fecha, fill='black', font=font_normal2)
+        titulo2 = "ATENCIÓN LABORATORIO"
+        text_width2 = draw.textlength(titulo2, font=font_title)
+        draw.text(((self.width_px - text_width2) // 2, y_position), titulo2, fill='black', font=font_title)
         y_position += 40
         
         # Línea separadora
+        draw.line([(20, y_position), (self.width_px-20, y_position)], fill='black', width=2)
+        y_position += 30
+        
+        # ================= FUNCIÓN PARA ALINEACIÓN PERFECTA =================
+        # Fijamos el inicio de los valores en el pixel 160 (para que quepa la palabra SERVICIO:)
+        x_valores = 160 
+        
+        def draw_alineado(label, valor, y, fuente_valor=font_normal):
+            draw.text((margen_x, y), label, fill='black', font=font_bold)
+            
+            ancho_maximo = self.width_px - x_valores - 20
+            palabras = str(valor).split()
+            lineas = []
+            linea_actual = ""
+            
+            for palabra in palabras:
+                prueba = f"{linea_actual} {palabra}".strip()
+                if draw.textlength(prueba, font=fuente_valor) <= ancho_maximo:
+                    linea_actual = prueba
+                else:
+                    if linea_actual: lineas.append(linea_actual)
+                    linea_actual = palabra
+            if linea_actual: lineas.append(linea_actual)
+            if not lineas: lineas = [""]
+            
+            y_actual = y
+            for linea in lineas:
+                draw.text((x_valores, y_actual), linea, fill='black', font=fuente_valor)
+                y_actual += 30 # Altura de línea
+            
+            return y_actual + 15
+        
+        # ================= DATOS DEL PACIENTE =================
+        # Fila especial: Nombre ocupa todo el ancho y hace salto
+        draw.text((margen_x, y_position), "PACIENTE:", fill='black', font=font_bold)
+        y_position += 30
+        
+        ancho_max_nombre = self.width_px - (margen_x * 2)
+        palabras_nombre = str(nombre_paciente).split()
+        linea_nombre = ""
+        for palabra in palabras_nombre:
+            prueba = f"{linea_nombre} {palabra}".strip()
+            if draw.textlength(prueba, font=font_normal) <= ancho_max_nombre:
+                linea_nombre = prueba
+            else:
+                draw.text((margen_x, y_position), linea_nombre, fill='black', font=font_normal)
+                y_position += 30
+                linea_nombre = palabra
+        if linea_nombre:
+            draw.text((margen_x, y_position), linea_nombre, fill='black', font=font_normal)
+            
+        y_position += 45
+        
+        # Fila DNI y Solicitud (Comparten línea)
+        draw.text((margen_x, y_position), "DNI:", fill='black', font=font_bold)
+        draw.text((90, y_position), dni if dni else "________", fill='black', font=font_normal2)
+        
+        draw.text((260, y_position), "SOLICITUD:", fill='black', font=font_bold)
+        draw.text((400, y_position), solicitud if solicitud else "____", fill='black', font=font_normal2)
+        y_position += 50
+        
+        # Filas alineadas con salto de línea automático
+        y_position = draw_alineado("SERVICIO:", servicio_solicitante if servicio_solicitante else "________________", y_position)
+        y_position = draw_alineado("EXAMEN:", examen_solicitado if examen_solicitado else "________________", y_position)
+        y_position = draw_alineado("FECHA:", fecha, y_position, font_normal2)
+        
+        # Línea separadora
+        y_position += 10
         draw.line([(20, y_position), (self.width_px-20, y_position)], fill='black', width=1)
+        
         y_position += 120
         
-        """ MEDICAMENTOS
-        draw.text((center_x - 60, y_position), "MEDICAMENTOS", fill='black', font=font_bold)
-        y_position += 25
-        
-        Aquí podrías agregar medicamentos desde los datos si los tienes
-        for i in range(4):
-            draw.text((40, y_position), f"{i+1}. _________________________", 
-                     fill='black', font=font_normal)
-            y_position += 20
-        
-        y_position += 10
-        
-        INSTRUCCIONES
-        draw.text((30, y_position), "INSTRUCCIONES:", fill='black', font=font_bold)
-        y_position += 20
-        
-        instrucciones = [
-            "1. Tomar según indicaciones",
-            "2. No exceder la dosis",
-            "3. Consultar ante efectos adversos"
-        ]
-        
-        for instruccion in instrucciones:
-            draw.text((40, y_position), instruccion, fill='black', font=font_normal)
-            y_position += 18
-        
-        y_position += 15 """
-        
-        # FIRMA
-        draw.line([(center_x - 100, y_position), (center_x + 100, y_position)], 
-                 fill='black', width=1)
+        # FIRMA CENTRADA Y LÍNEA MÁS LARGA
+        # Dibujamos línea de 280px (center - 140 a center + 140)
+        draw.line([(center_x - 140, y_position), (center_x + 140, y_position)], fill='black', width=2)
         y_position += 15
-        draw.text((center_x - 40, y_position), "Firma del Médico", 
-                 fill='black', font=font_normal)
+        
+        txt_firma = "Firma del Médico"
+        ancho_firma = draw.textlength(txt_firma, font=font_normal)
+        draw.text((center_x - (ancho_firma/2), y_position), txt_firma, fill='black', font=font_normal)
         
         return img
-    
-    def wrap_text(self, text, max_length):
-        """Dividir texto en líneas de máximo max_length caracteres"""
-        if not text:
-            return []
-        
-        words = text.split()
-        lines = []
-        current_line = []
-        
-        for word in words:
-            if len(' '.join(current_line + [word])) <= max_length:
-                current_line.append(word)
-            else:
-                if current_line:
-                    lines.append(' '.join(current_line))
-                current_line = [word]
-        
-        if current_line:
-            lines.append(' '.join(current_line))
-        
-        return lines

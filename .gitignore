@@ -14,6 +14,13 @@ build/
 dist/
 *.spec
 Fichas_PDF
+main.build/
+main.dist/
 
 # Configuraciones locales de VS Code
 .vscode/
+
+# instalador
+instaladores/
+*.exe
+*.iss

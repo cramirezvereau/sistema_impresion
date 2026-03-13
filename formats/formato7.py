@@ -30,6 +30,7 @@ class FormatoReporteCamas(BaseTicketFormat):
         
         total = gine + ciru + medi + pedi
         
+        # Mantenemos el tamaño normal de la imagen
         img = Image.new('RGB', (self.width_px, self.height_px), 'white')
         draw = ImageDraw.Draw(img)
         
@@ -40,9 +41,6 @@ class FormatoReporteCamas(BaseTicketFormat):
         except:
             font_title = font_bold = font_normal = ImageFont.load_default()
             
-        # Marco exterior grueso
-        draw.rectangle([(5, 5), (self.width_px-5, self.height_px-5)], outline='black', width=4)
-        
         y_pos = 20
         # Título
         draw.text((20, y_pos), "REPORTE DE PACIENTES DE", fill='black', font=font_title)
@@ -59,9 +57,10 @@ class FormatoReporteCamas(BaseTicketFormat):
         # Función para dibujar las filas con óvalos
         def dibujar_fila(y, etiqueta, valor):
             draw.text((20, y + 10), etiqueta, fill='black', font=font_bold)
-            # Dibujar óvalo (x1, y1, x2, y2)
-            oval_rect = [(250, y), (400, y + 45)]
-            draw.ellipse(oval_rect, outline='black', width=2)
+            # Elipse con tamaño ajustado (más grande)
+            oval_rect = [(220, y - 5), (430, y + 50)]
+            draw.ellipse(oval_rect, outline='black', width=3)
+            
             # Centrar el texto dentro del óvalo
             texto_val = str(valor)
             ancho_txt = draw.textlength(texto_val, font=font_normal)
@@ -75,4 +74,14 @@ class FormatoReporteCamas(BaseTicketFormat):
         y_pos += 70
         dibujar_fila(y_pos, "PEDIATRIA", pedi)
         
+        # ==============================================================
+        # DIBUJAR EL RECUADRO HASTA EL FINAL DE LOS DATOS (Sin cortar la imagen)
+        # ==============================================================
+        # El último óvalo (Pediatría) termina en y_pos + 50. Le damos un margen de 15px.
+        fondo_cuadro = y_pos + 65 
+        
+        # Dibujamos el rectángulo cuidando que la derecha tenga un margen de 15px
+        draw.rectangle([(5, 5), (self.width_px - 15, fondo_cuadro)], outline='black', width=3)
+        
+        # Retornamos la imagen tal cual, sin hacer ".crop()"
         return img

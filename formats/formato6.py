@@ -122,9 +122,26 @@ class FormatoHidratacion(BaseTicketFormat):
         # ================= NOMBRES =================
         draw.text((margen_x, y_position), "NOMBRES Y APELLIDOS:", fill='black', font=font_bold)
         y_position += 35
-        draw.text((margen_x, y_position), f"{nombre}", fill='black', font=font_normal)
-        draw.line([(margen_x, y_position+30), (self.width_px - margen_x, y_position+30)], fill='black', width=1)
-        y_position += 50
+        
+        # Le aplicamos salto de línea al nombre también por si acaso
+        ancho_max_nombre = self.width_px - (margen_x * 2)
+        palabras_nombre = str(nombre).split()
+        linea_nombre = ""
+        for palabra in palabras_nombre:
+            prueba = f"{linea_nombre} {palabra}".strip()
+            if draw.textlength(prueba, font=font_normal) <= ancho_max_nombre:
+                linea_nombre = prueba
+            else:
+                draw.text((margen_x, y_position), linea_nombre, fill='black', font=font_normal)
+                y_position += 30
+                linea_nombre = palabra
+        if linea_nombre:
+            draw.text((margen_x, y_position), linea_nombre, fill='black', font=font_normal)
+            
+        # Dibujamos la línea de subrayado debajo del nombre
+        y_position += 30
+        draw.line([(margen_x, y_position), (self.width_px - margen_x, y_position)], fill='black', width=1)
+        y_position += 40
         
         # ================= MEDICAMENTOS =================
         draw.text((margen_x, y_position), "MEDICAMENTO/HIDRATACIÓN:", fill='black', font=font_bold)
@@ -135,26 +152,49 @@ class FormatoHidratacion(BaseTicketFormat):
             
         y_position += 30
         
-        # ================= FUNCIÓN DE APOYO =================
-        # Esta pequeña función dibuja la Etiqueta en Negrita y el Texto al lado en Normal
-        def draw_bold_and_normal(x, y, label_bold, text_normal):
+        # ================= FUNCIÓN DE APOYO INTELIGENTE =================
+        def draw_bold_and_normal(x, y, label_bold, text_normal, salto_base=45):
             # 1. Dibuja la parte en negrita
             draw.text((x, y), label_bold, fill='black', font=font_bold)
-            # 2. Calcula cuánto espacio ocupó esa palabra
             ancho_label = draw.textlength(label_bold, font=font_bold)
-            # 3. Dibuja el texto normal justo al lado (+8 pixeles de separación)
-            draw.text((x + ancho_label + 8, y), text_normal, fill='black', font=font_normal)
+            
+            # 2. Calcula los límites para el texto normal
+            x_valor = x + ancho_label + 8
+            ancho_maximo = self.width_px - x_valor - 20 # 20px margen de seguridad derecho
+            
+            # 3. Corta y envuelve el texto si es muy largo
+            palabras = str(text_normal).split()
+            lineas = []
+            linea_actual = ""
+            
+            for palabra in palabras:
+                prueba = f"{linea_actual} {palabra}".strip()
+                if draw.textlength(prueba, font=font_normal) <= ancho_maximo:
+                    linea_actual = prueba
+                else:
+                    if linea_actual: lineas.append(linea_actual)
+                    linea_actual = palabra
+            if linea_actual: lineas.append(linea_actual)
+            if not lineas: lineas = [""]
+            
+            # 4. Imprime las líneas calculadas
+            y_actual = y
+            for linea in lineas:
+                draw.text((x_valor, y_actual), linea, fill='black', font=font_normal)
+                y_actual += 30 # Altura de cada nueva línea
+                
+            # 5. Retorna la nueva posición Y
+            altura_ocupada = y_actual - y
+            if altura_ocupada < salto_base:
+                return y + salto_base
+            return y_actual + 15
 
         # ================= CAMPOS INFERIORES =================
-        draw_bold_and_normal(margen_x, y_position, "GOTEO:", goteo)
-        y_position += 45
+        # Ahora asignamos el retorno a y_position para que el documento crezca dinámicamente
+        y_position = draw_bold_and_normal(margen_x, y_position, "GOTEO:", goteo)
+        y_position = draw_bold_and_normal(margen_x, y_position, "FRASCO:", frasco)
+        y_position = draw_bold_and_normal(margen_x, y_position, "RESPONSABLE:", responsable)
+        y_position = draw_bold_and_normal(margen_x, y_position, "FECHA:", fecha)
         
-        draw_bold_and_normal(margen_x, y_position, "FRASCO:", frasco)
-        y_position += 45
-        
-        draw_bold_and_normal(margen_x, y_position, "RESPONSABLE:", responsable)
-        y_position += 45
-        
-        draw_bold_and_normal(margen_x, y_position, "FECHA:", fecha)
         
         return img
