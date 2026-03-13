@@ -16,7 +16,7 @@ dist/
 Fichas_PDF
 main.build/
 main.dist/
-tickets_pdf
+tickets_pdf/
 
 # Configuraciones locales de VS Code
 .vscode/
