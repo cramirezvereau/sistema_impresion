@@ -971,7 +971,6 @@ class PrinterAppUI:
         thread.start()
     
     def _print_job(self, formato_key, data: Dict, guardar_pdf, solo_pdf=False):
-        """Ejecutar trabajo de impresión"""
         progress_window = self.create_progress_window(formato_key == "test")
         
         try:
@@ -991,14 +990,16 @@ class PrinterAppUI:
                 is_test = False
             
             pdf_path = None
-            if guardar_pdf and formato_key != "test":
+
+            # Guardar PDF si se solicitó
+            if guardar_pdf and not is_test:
                 self.update_progress(progress_window, "Guardando PDF...", 0.6)
-                success, pdf_path = self.printer_manager.print_image(img, is_test)
-            
-            # Solo imprimir si NO es solo_pdf y hay impresora
-            if not solo_pdf and self.printer_manager.selected_printer:
+                _, pdf_path = self.printer_manager.save_pdf(img)  # ← save_pdf separado
+
+            # Imprimir físicamente si no es solo_pdf
+            if not solo_pdf:
                 self.update_progress(progress_window, "Enviando a impresora...", 0.8)
-                self.printer_manager.print_image(img, is_test)
+                self.printer_manager.print_image(img, is_test)  # ← print_image solo imprime
             
             self.update_progress(progress_window, "¡Completado!", 1.0)
             time.sleep(0.3)
@@ -1010,7 +1011,7 @@ class PrinterAppUI:
                 mensaje = f"PDF guardado correctamente\n📁 {pdf_path}"
             else:
                 mensaje = f"{formato_nombre} impreso correctamente"
-                if guardar_pdf and pdf_path:
+                if pdf_path:
                     mensaje += f"\n✓ PDF guardado en: {pdf_path}"
             
             self.root.after(0, lambda: messagebox.showinfo("Éxito", mensaje))

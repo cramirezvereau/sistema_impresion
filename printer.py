@@ -1,10 +1,9 @@
 # printer.py
 import os
+import time
 import win32print
 import win32ui
-from PIL import Image, ImageDraw, ImageFont, ImageWin
-import threading
-import time
+from PIL import Image, ImageWin
 
 class PrinterManager:
     def __init__(self):
@@ -28,7 +27,7 @@ class PrinterManager:
                 self.selected_printer = target
             else:
                 print("✗ No se encontró EPSON TM-T20II.")
-                self.selected_printer = None  # ← Ya NO selecciona la primera impresora
+                self.selected_printer = None
             return self.selected_printer
         except Exception as e:
             print("Error al cargar impresoras:", e)
@@ -37,7 +36,6 @@ class PrinterManager:
     def verify_printer(self, printer_name=None):
         """Verificar estado de la impresora"""
         printer_name = printer_name or self.selected_printer
-        
         if not printer_name:
             return False, "No hay impresora seleccionada", ("gray50", "gray60")
         try:
@@ -56,27 +54,44 @@ class PrinterManager:
             self.printer_status = f"● Error de conexión: {str(e)}"
             self.status_color = ("red", "red")
             return False, self.printer_status, self.status_color
-    
-    def print_image(self, img, is_test=False, output_folder="tickets_pdf"):
-        """Guarda la imagen como PDF en lugar de enviar a impresora"""
+
+    def save_pdf(self, img, output_folder="tickets_pdf"):
+        """Guardar imagen como PDF (separado de la impresión)"""
         try:
-            # Crear carpeta de salida si no existe
             os.makedirs(output_folder, exist_ok=True)
-            
-            # Nombre de archivo con timestamp para evitar colisiones
             timestamp = time.strftime("%Y%m%d_%H%M%S")
-            prefix = "prueba" if is_test else "ticket"
-            pdf_path = os.path.join(output_folder, f"{prefix}_{timestamp}.pdf")
+            pdf_path = os.path.join(output_folder, f"ticket_{timestamp}.pdf")
             
-            # Convertir a RGB si tiene canal alpha (RGBA)
-            if img.mode in ("RGBA", "P"):
-                img = img.convert("RGB")
-            
-            # Guardar como PDF
-            img.save(pdf_path, "PDF", resolution=203)
+            img_rgb = img.convert("RGB") if img.mode in ("RGBA", "P") else img
+            img_rgb.save(pdf_path, "PDF", resolution=203)
             
             print(f"✔ PDF guardado en: {pdf_path}")
             return True, pdf_path
-            
         except Exception as e:
             raise Exception(f"Error al guardar PDF: {str(e)}")
+
+    def print_image(self, img, is_test=False):
+        """Enviar imagen a la impresora física"""
+        if not self.selected_printer:
+            raise Exception("No hay impresora seleccionada")
+        
+        try:
+            width_mm, height_mm, dpi = 80, 210, 203
+            width_px = int(width_mm * dpi / 25.4)
+            height_px = int(height_mm * dpi / 25.4)
+            
+            hdc = win32ui.CreateDC()
+            hdc.CreatePrinterDC(self.selected_printer)
+            hdc.StartDoc("Ticket de Prueba" if is_test else "Ticket")
+            hdc.StartPage()
+            
+            dib = ImageWin.Dib(img)
+            dib.draw(hdc.GetHandleOutput(), (0, 0, width_px, height_px))
+            
+            hdc.EndPage()
+            hdc.EndDoc()
+            hdc.DeleteDC()
+            
+            return True
+        except Exception as e:
+            raise Exception(f"Error durante la impresión: {str(e)}")
